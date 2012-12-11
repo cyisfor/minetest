@@ -18,7 +18,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 */
 
 #include "socket.h"
-
+#include "jmutexautolock.h"
 #ifdef _WIN32
 	#define WIN32_LEAN_AND_MEAN
 	// Without this some of the network functions are not found on mingw
@@ -78,30 +78,37 @@ void sockets_cleanup()
 #endif
 }
 
-Address::Address()
+Address::Address() : m_address(NULL)
 {
-	m_address = 0;
-	m_port = 0;
+	assert(m_address==NULL);
 }
 
-Address::Address(unsigned int address, unsigned short port)
+Address::~Address() {
+    JMutexAutoLock context(m_lock);
+//    if(m_address != NULL) freeaddrinfo(m_address);
+    m_address = NULL;
+}
+
+#define ResolveAssert(what,message) { int e = what; if(e != 0) throw ResolveError(message); }
+
+Address::Address(const char* node, const char* service) : m_address(NULL)
 {
-	m_address = address;
-	m_port = port;
+    JMutexAutoLock context(m_lock);
+    assert(m_address==NULL);
+    ResolveAssert(getaddrinfo(node,service,NULL,&m_address),node);
 }
 
 Address::Address(unsigned int a, unsigned int b,
 		unsigned int c, unsigned int d,
-		unsigned short port)
+		unsigned short port) : m_address(NULL)
 {
-	m_address = (a<<24) | (b<<16) | ( c<<8) | d;
-	m_port = port;
+    assert(m_address==NULL);
+    setAddress(a,b,c,d,port);
 }
 
 bool Address::operator==(Address &address)
 {
-	return (m_address == address.m_address
-			&& m_port == address.m_port);
+	return (serializeString() == address.serializeString());
 }
 
 bool Address::operator!=(Address &address)
@@ -109,64 +116,55 @@ bool Address::operator!=(Address &address)
 	return !(*this == address);
 }
 
-void Address::Resolve(const char *name)
-{
-	struct addrinfo *resolved;
-	int e = getaddrinfo(name, NULL, NULL, &resolved);
-	if(e != 0)
-		throw ResolveError("");
-	/*
-		FIXME: This is an ugly hack; change the whole class
-		to store the address as sockaddr
-	*/
-	struct sockaddr_in *t = (struct sockaddr_in*)resolved->ai_addr;
-	m_address = ntohl(t->sin_addr.s_addr);
-	freeaddrinfo(resolved);
-}
 
 std::string Address::serializeString() const
 {
-	unsigned int a, b, c, d;
-	a = (m_address & 0xFF000000)>>24;
-	b = (m_address & 0x00FF0000)>>16;
-	c = (m_address & 0x0000FF00)>>8;
-	d = (m_address & 0x000000FF);
-	return itos(a)+"."+itos(b)+"."+itos(c)+"."+itos(d);
+    assert(m_address);
+    char node[0x100];
+    char service[0x10];
+    int ret = getnameinfo(m_address->ai_addr,m_address->ai_addrlen,
+                          node,0x100,
+                          service,0x10,
+                          NI_NUMERICHOST | NI_NUMERICSERV );
+    if(ret!=0) throw ResolveError("Could not get the (readable) name of an address! plz debug");
+    return std::string(node)+","+service;
 }
 
-unsigned int Address::getAddress() const
+void Address::setAddress(const char* node, const char* service)
 {
-	return m_address;
-}
-
-unsigned short Address::getPort() const
-{
-	return m_port;
-}
-
-void Address::setAddress(unsigned int address)
-{
-	m_address = address;
+    JMutexAutoLock context(m_lock);
+    assert(m_address == NULL);
+    ResolveAssert(getaddrinfo(node,service,NULL,&m_address),node);
 }
 
 void Address::setAddress(unsigned int a, unsigned int b,
-		unsigned int c, unsigned int d)
+                         unsigned int c, unsigned int d, 
+			 unsigned short port)
 {
-	m_address = (a<<24) | (b<<16) | ( c<<8) | d;
-}
 
-void Address::setPort(unsigned short port)
-{
-	m_port = port;
+    JMutexAutoLock context(m_lock);
+    assert(m_address==NULL);
+    char node[0x100];
+    char service[0x10];
+    struct sockaddr_in fakeaddr;
+    memset(&fakeaddr,0,sizeof(fakeaddr));
+    fakeaddr.sin_family = AF_INET;
+    fakeaddr.sin_addr.s_addr = htonl((a<<24) | (b<<16) | ( c<<8) | d);
+    fakeaddr.sin_port = htons(port);
+    assert(0==getnameinfo((struct sockaddr*)&fakeaddr,sizeof(fakeaddr),
+                          node,0x100,
+                          service,0x10,
+               NI_NUMERICHOST | NI_NUMERICSERV));
+    struct addrinfo hints = {};
+    hints.ai_flags = AI_NUMERICHOST;
+    hints.ai_socktype = SOCK_DGRAM;
+    ResolveAssert(getaddrinfo(node,service,&hints,&m_address),node);
+    assert(m_address);
 }
 
 void Address::print(std::ostream *s) const
 {
-	(*s)<<((m_address>>24)&0xff)<<"."
-			<<((m_address>>16)&0xff)<<"."
-			<<((m_address>>8)&0xff)<<"."
-			<<((m_address>>0)&0xff)<<":"
-			<<m_port;
+	(*s)<<serializeString();
 }
 
 void Address::print() const
@@ -174,21 +172,44 @@ void Address::print() const
 	print(&dstream);
 }
 
-UDPSocket::UDPSocket()
+UDPSocket::UDPSocket(): m_handle(-1) {}
+void UDPSocket::Bind(const char* service)
 {
-	if(g_sockets_initialized == false)
+    std::cerr << "Bind " << service << std::endl;
+    if(g_sockets_initialized == false)
 		throw SocketException("Sockets not initialized");
-	
-    m_handle = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	
+
+    struct addrinfo *address = NULL;
+    struct addrinfo hints = {};
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_flags = AI_PASSIVE | AI_NUMERICHOST | AI_NUMERICSERV | AI_V4MAPPED;
+
+    ResolveAssert(getaddrinfo(NULL,service,&hints,&address),"ready to listen");
+
+    m_handle = socket(address->ai_family,address->ai_socktype,address->ai_protocol);
+
 	if(DP)
 	dstream<<DPS<<"UDPSocket("<<(int)m_handle<<")::UDPSocket()"<<std::endl;
-	
+
     if(m_handle <= 0)
     {
 		throw SocketException("Failed to create socket");
     }
 
+    struct addrinfo* cur = address;
+    while(cur) {
+        if(bind(m_handle, cur->ai_addr, cur->ai_addrlen) < 0)
+        {
+    #ifndef DISABLE_ERRNO
+    		dstream<<(int)m_handle<<": Bind failed: "<<strerror(errno)<<cur->ai_protocol<<std::endl;
+    #endif
+    		throw SocketException("Failed to bind socket");
+        }
+	cur = cur->ai_next;
+	break;
+    }
 /*#ifdef _WIN32
 	DWORD nonblocking = 0;
 	if(ioctlsocket(m_handle, FIONBIO, &nonblocking) != 0)
@@ -203,12 +224,15 @@ UDPSocket::UDPSocket()
 	}
 #endif*/
 
-	setTimeoutMs(0);
+
+    setTimeoutMs(0);
+    freeaddrinfo(address);
+    	std::cerr << "BEEP" << std::endl;
 }
 
-UDPSocket::~UDPSocket()
-{
-	if(DP)
+void UDPSocket::Close() {
+   if(m_handle < 0) return;
+   	if(DP)
 	dstream<<DPS<<"UDPSocket("<<(int)m_handle<<")::~UDPSocket()"<<std::endl;
 
 #ifdef _WIN32
@@ -216,26 +240,13 @@ UDPSocket::~UDPSocket()
 #else
 	close(m_handle);
 #endif
+   m_handle = -1;
 }
 
-void UDPSocket::Bind(unsigned short port)
+
+UDPSocket::~UDPSocket()
 {
-	if(DP)
-	dstream<<DPS<<"UDPSocket("<<(int)m_handle
-			<<")::Bind(): port="<<port<<std::endl;
-
-    sockaddr_in address;
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(port);
-
-    if(bind(m_handle, (const sockaddr*)&address, sizeof(sockaddr_in)) < 0)
-    {
-#ifndef DISABLE_ERRNO
-		dstream<<(int)m_handle<<": Bind failed: "<<strerror(errno)<<std::endl;
-#endif
-		throw SocketException("Failed to bind socket");
-    }
+	Close();
 }
 
 void UDPSocket::Send(const Address & destination, const void * data, int size)
@@ -274,13 +285,8 @@ void UDPSocket::Send(const Address & destination, const void * data, int size)
 	if(dumping_packet)
 		return;
 
-	sockaddr_in address;
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = htonl(destination.getAddress());
-	address.sin_port = htons(destination.getPort());
-
 	int sent = sendto(m_handle, (const char*)data, size,
-		0, (sockaddr*)&address, sizeof(sockaddr_in));
+		0, destination.getAddress(), destination.getLength());
 
     if(sent != size)
     {
@@ -295,7 +301,8 @@ int UDPSocket::Receive(Address & sender, void * data, int size)
 		return -1;
 	}
 
-	sockaddr_in address;
+	struct sockaddr_storage address;
+	memset(&address,0,sizeof(address));
 	socklen_t address_len = sizeof(address);
 
 	int received = recvfrom(m_handle, (char*)data,
@@ -304,10 +311,14 @@ int UDPSocket::Receive(Address & sender, void * data, int size)
 	if(received < 0)
 		return -1;
 
-	unsigned int address_ip = ntohl(address.sin_addr.s_addr);
-	unsigned int address_port = ntohs(address.sin_port);
+	char node[0x100];
+	char service[0x10];
+	assert(0==getnameinfo((struct sockaddr*)&address,address_len,
+			node,0x100,
+			service,0x10,
+			NI_NUMERICHOST|NI_NUMERICSERV));
 
-	sender = Address(address_ip, address_port);
+	sender.setCPlusPlusSucks(Address(node,service));
 
 	if(DP){
 		//dstream<<DPS<<"UDPSocket("<<(int)m_handle<<")::Receive(): sender=";

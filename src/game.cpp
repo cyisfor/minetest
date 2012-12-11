@@ -893,7 +893,7 @@ void the_game(
 	std::string playername,
 	std::string password,
 	std::string address, // If "", local server is used
-	u16 port,
+	std::string service,
 	std::wstring &error_message,
 	std::string configpath,
 	ChatBackend &chat_backend,
@@ -979,7 +979,7 @@ void the_game(
 		infostream<<"Creating server"<<std::endl;
 		server = new Server(map_dir, configpath, gamespec,
 				simple_singleplayer_mode);
-		server->start(port);
+		server->start(service);
 	}
 
 	try{
@@ -1001,13 +1001,11 @@ void the_game(
 	IGameDef *gamedef = &client;
 			
 	draw_load_screen(L"Resolving address...", driver, font);
-	Address connect_address(0,0,0,0, port);
+	Address connect_address;
 	try{
 		if(address == "")
-			//connect_address.Resolve("localhost");
-			connect_address.setAddress(127,0,0,1);
-		else
-			connect_address.Resolve(address.c_str());
+			address = "localhost";
+		connect_address.setAddress(address,service);
 	}
 	catch(ResolveError &e)
 	{

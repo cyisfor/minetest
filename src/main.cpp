@@ -1003,13 +1003,13 @@ int main(int argc, char *argv[])
 	*/
 
 	// Port
-	u16 port = 30000;
+	std::string port = "30000";
 	if(cmd_args.exists("port"))
-		port = cmd_args.getU16("port");
+		port = cmd_args.get("port");
 	else if(g_settings->exists("port"))
-		port = g_settings->getU16("port");
-	if(port == 0)
-		port = 30000;
+		port = g_settings->get("port");
+	if(port.size()==0)
+		port = "30000";
 	
 	// World directory
 	std::string commanded_world = "";
@@ -1196,7 +1196,7 @@ int main(int argc, char *argv[])
 
 		// Create server
 		Server server(world_path, configpath, gamespec, false);
-		server.start(port);
+		server.start(port.c_str());
 		
 		// Run server
 		dedicated_server_loop(server, kill);
@@ -1407,7 +1407,7 @@ int main(int argc, char *argv[])
 			std::string current_playername = "inv£lid";
 			std::string current_password = "";
 			std::string current_address = "does-not-exist";
-			int current_port = 0;
+			std::string current_port = "?";
 
 			/*
 				Out-of-game menu loop.
@@ -1435,7 +1435,7 @@ int main(int argc, char *argv[])
 					menudata.selected_tab = g_settings->getS32("selected_mainmenu_tab");
 				menudata.address = narrow_to_wide(address);
 				menudata.name = narrow_to_wide(playername);
-				menudata.port = narrow_to_wide(itos(port));
+				menudata.port = narrow_to_wide(port);
 				if(cmd_args.exists("password"))
 					menudata.password = narrow_to_wide(cmd_args.get("password"));
 				menudata.fancy_trees = g_settings->getBool("new_style_leaves");
@@ -1552,8 +1552,8 @@ int main(int argc, char *argv[])
 				//infostream<<"Main: password hash: '"<<password<<"'"<<std::endl;
 
 				address = wide_to_narrow(menudata.address);
-				int newport = stoi(wide_to_narrow(menudata.port));
-				if(newport != 0)
+				std::string newport = wide_to_narrow(menudata.port);
+				if(newport.size()>0)
 					port = newport;
 				simple_singleplayer_mode = menudata.simple_singleplayer_mode;
 				// Save settings
@@ -1575,7 +1575,7 @@ int main(int argc, char *argv[])
 				g_settings->set("enable_damage", itos(menudata.enable_damage));
 				g_settings->set("name", playername);
 				g_settings->set("address", address);
-				g_settings->set("port", itos(port));
+				g_settings->set("port", port);
 				if(menudata.selected_world != -1)
 					g_settings->set("selected_world_path",
 							worldspecs[menudata.selected_world].path);
@@ -1594,7 +1594,7 @@ int main(int argc, char *argv[])
 					current_playername = "singleplayer";
 					current_password = "";
 					current_address = "";
-					current_port = 30011;
+					current_port = "30011";
 				}
 				
 				// Set world path to selected one

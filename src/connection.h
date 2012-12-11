@@ -496,7 +496,7 @@ enum ConnectionCommandType{
 struct ConnectionCommand
 {
 	enum ConnectionCommandType type;
-	u16 port;
+	std::string service;
 	Address address;
 	u16 peer_id;
 	u8 channelnum;
@@ -505,10 +505,10 @@ struct ConnectionCommand
 	
 	ConnectionCommand(): type(CONNCMD_NONE) {}
 
-	void serve(u16 port_)
+	void serve(const char* service_)
 	{
 		type = CONNCMD_SERVE;
-		port = port_;
+		service = service_;
 	}
 	void connect(Address address_)
 	{
@@ -558,7 +558,7 @@ public:
 	void putCommand(ConnectionCommand &c);
 	
 	void SetTimeoutMs(int timeout){ m_bc_receive_timeout = timeout; }
-	void Serve(unsigned short port);
+	void Serve(const char* service);
 	void Connect(Address address);
 	bool Connected();
 	void Disconnect();
@@ -577,7 +577,7 @@ private:
 	void send(float dtime);
 	void receive();
 	void runTimeouts(float dtime);
-	void serve(u16 port);
+	void serve(const char* service);
 	void connect(Address address);
 	void disconnect();
 	void sendToAll(u8 channelnum, SharedBuffer<u8> data, bool reliable);

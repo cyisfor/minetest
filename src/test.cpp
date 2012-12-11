@@ -462,7 +462,7 @@ struct TestCompress: public TestBase
 					<<os_decompressed.str().size()<<std::endl;
 			std::string str_decompressed = os_decompressed.str();
 			UTEST(str_decompressed.size() == data_in.size(), "Output size not"
-					" equal (output: %i, input: %i)",
+					" equal (output: %li, input: %li)",
 					str_decompressed.size(), data_in.size());
 			for(u32 i=0; i<size && i<str_decompressed.size(); i++){
 				UTEST(str_decompressed[i] == data_in[i],
@@ -1291,12 +1291,13 @@ struct TestSocket: public TestBase
 {
 	void Run()
 	{
-		const int port = 30003;
+		const char* service = "30003";
 		UDPSocket socket;
-		socket.Bind(port);
+		socket.Bind(service);
 
 		const char sendbuffer[] = "hello world!";
-		socket.Send(Address(127,0,0,1,port), sendbuffer, sizeof(sendbuffer));
+		Address receiver("127.0.0.1",service);
+		socket.Send(receiver, sendbuffer, sizeof(sendbuffer));
 
 		sleep_ms(50);
 
@@ -1309,9 +1310,11 @@ struct TestSocket: public TestBase
 			if(bytes_read < 0)
 				break;
 		}
+		socket.Close();
 		//FIXME: This fails on some systems
 		UASSERT(strncmp(sendbuffer, rcvbuffer, sizeof(sendbuffer))==0);
-		UASSERT(sender.getAddress() == Address(127,0,0,1, 0).getAddress());
+		Address expected(127,0,0,1,30003);
+		UASSERT(sender == expected);
 	}
 };
 
@@ -1412,7 +1415,7 @@ struct TestConnection: public TestBase
 		
 		infostream<<"** Creating server Connection"<<std::endl;
 		con::Connection server(proto_id, 512, 5.0, &hand_server);
-		server.Serve(30001);
+		server.Serve("30001");
 		
 		infostream<<"** Creating client Connection"<<std::endl;
 		con::Connection client(proto_id, 512, 5.0, &hand_client);

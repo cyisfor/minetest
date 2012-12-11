@@ -620,8 +620,8 @@ void Connection::processCommand(ConnectionCommand &c)
 		return;
 	case CONNCMD_SERVE:
 		dout_con<<getDesc()<<" processing CONNCMD_SERVE port="
-				<<c.port<<std::endl;
-		serve(c.port);
+				<<c.service<<std::endl;
+		serve(c.service.c_str());
 		return;
 	case CONNCMD_CONNECT:
 		dout_con<<getDesc()<<" processing CONNCMD_CONNECT"<<std::endl;
@@ -1021,11 +1021,11 @@ nextpeer:
 	}
 }
 
-void Connection::serve(u16 port)
+void Connection::serve(const char* service)
 {
-	dout_con<<getDesc()<<" serving at port "<<port<<std::endl;
+	dout_con<<getDesc()<<" serving at port "<<service<<std::endl;
 	try{
-		m_socket.Bind(port);
+		m_socket.Bind(service);
 		m_peer_id = PEER_ID_SERVER;
 	}
 	catch(SocketException &e){
@@ -1038,8 +1038,7 @@ void Connection::serve(u16 port)
 
 void Connection::connect(Address address)
 {
-	dout_con<<getDesc()<<" connecting to "<<address.serializeString()
-			<<":"<<address.getPort()<<std::endl;
+	dout_con<<getDesc()<<" connecting to "<<address.serializeString()<<std::endl;
 
 	core::map<u16, Peer*>::Node *node = m_peers.find(PEER_ID_SERVER);
 	if(node != NULL){
@@ -1054,7 +1053,7 @@ void Connection::connect(Address address)
 	e.peerAdded(peer->id, peer->address);
 	putEvent(e);
 	
-	m_socket.Bind(0);
+	m_socket.Bind();
 	
 	// Send a dummy packet to server with peer_id = PEER_ID_INEXISTENT
 	m_peer_id = PEER_ID_INEXISTENT;
@@ -1581,10 +1580,10 @@ void Connection::putCommand(ConnectionCommand &c)
 	m_command_queue.push_back(c);
 }
 
-void Connection::Serve(unsigned short port)
+void Connection::Serve(const char* service)
 {
 	ConnectionCommand c;
-	c.serve(port);
+	c.serve(service);
 	putCommand(c);
 }
 

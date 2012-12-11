@@ -22,6 +22,12 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #include <ostream>
 #include "exceptions.h"
+#include "jmutex.h"
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+// ...because the private keyword is useless!
 
 extern bool socket_enable_debug_output;
 
@@ -59,25 +65,30 @@ class Address
 {
 public:
 	Address();
-	Address(unsigned int address, unsigned short port);
+	~Address();
+	Address(const char* node, const char* service);
+	// XXX: this hack is only used in test.cpp
 	Address(unsigned int a, unsigned int b,
 			unsigned int c, unsigned int d,
 			unsigned short port);
 	bool operator==(Address &address);
 	bool operator!=(Address &address);
+	void setCPlusPlusSucks(Address address) {
+		*this = address;
+	}
 	void Resolve(const char *name);
-	unsigned int getAddress() const;
-	unsigned short getPort() const;
-	void setAddress(unsigned int address);
+	struct sockaddr* getAddress() const { return m_address->ai_addr; }
+	socklen_t getLength() const { return m_address->ai_addrlen; }
+	void setAddress(const char* node, const char* service);
 	void setAddress(unsigned int a, unsigned int b,
-			unsigned int c, unsigned int d);
-	void setPort(unsigned short port);
+			unsigned int c, unsigned int d,
+			unsigned short port);
 	void print(std::ostream *s) const;
 	void print() const;
 	std::string serializeString() const;
 private:
-	unsigned int m_address;
-	unsigned short m_port;
+    struct addrinfo* m_address;
+    JMutex m_lock;
 };
 
 class UDPSocket
@@ -85,8 +96,8 @@ class UDPSocket
 public:
 	UDPSocket();
 	~UDPSocket();
-	void Bind(unsigned short port);
-	//void Close();
+	void Bind(const char* service = NULL);
+	void Close();
 	//bool IsOpen();
 	void Send(const Address & destination, const void * data, int size);
 	// Returns -1 if there is no data

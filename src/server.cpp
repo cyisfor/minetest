@@ -1181,17 +1181,17 @@ Server::~Server()
 	}
 }
 
-void Server::start(unsigned short port)
+void Server::start(const char* service)
 {
 	DSTACK(__FUNCTION_NAME);
-	infostream<<"Starting server on port "<<port<<"..."<<std::endl;
+	infostream<<"Starting server on port "<<service<<"..."<<std::endl;
 
 	// Stop thread if already running
 	m_thread.stop();
 	
 	// Initialize connection
 	m_con.SetTimeoutMs(30);
-	m_con.Serve(port);
+	m_con.Serve(service);
 
 	// Start thread
 	m_thread.setRun(true);
@@ -1207,7 +1207,7 @@ void Server::start(unsigned short port)
 	<<"      \\/        \\/     \\/          \\/     \\/        "<<std::endl;
 	actionstream<<"World at ["<<m_path_world<<"]"<<std::endl;
 	actionstream<<"Server for gameid=\""<<m_gamespec.id
-			<<"\" listening on port "<<port<<"."<<std::endl;
+			<<"\" listening on port "<<service<<"."<<std::endl;
 }
 
 void Server::stop()
