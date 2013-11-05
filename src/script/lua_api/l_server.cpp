@@ -247,6 +247,7 @@ int ModApiServer::l_get_modnames(lua_State *L)
 			mods_sorted.push_back(*i);
 	}
 
+    int errfunc = script_error_handler(L);
 	// Get the table insertion function from Lua.
 	lua_getglobal(L, "table");
 	lua_getfield(L, -1, "insert");
@@ -261,12 +262,13 @@ int ModApiServer::l_get_modnames(lua_State *L)
 		lua_pushvalue(L, insertion_func);
 		lua_pushvalue(L, new_table);
 		lua_pushstring(L, (*i).c_str());
-		if(lua_pcall(L, 2, 0, 0) != 0)
+		if(lua_pcall(L, 2, 0, errfunc) != 0)
 		{
 			script_error(L, "error: %s", lua_tostring(L, -1));
 		}
 		++i;
 	}
+    lua_remove(L,errfunc);
 	return 1;
 }
 

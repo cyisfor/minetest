@@ -414,6 +414,8 @@ int ModApiCraft::l_get_all_craft_recipes(lua_State *L)
 		char *fmtpos, *fmt = &query[0];
 		if (strtok_r(fmt, " ", &fmtpos) == output.item)
 		{
+
+            int errfunc = script_error_handler(L);
 			input = def->getInput(output, gdef);
 			lua_pushvalue(L, table_insert);
 			lua_pushvalue(L, table);
@@ -448,8 +450,9 @@ int ModApiCraft::l_get_all_craft_recipes(lua_State *L)
 			lua_setfield(L, -2, "type");
 			lua_pushstring(L, &tmpout.item[0]);
 			lua_setfield(L, -2, "output");
-			if (lua_pcall(L, 2, 0, 0))
+			if (lua_pcall(L, 2, 0, errfunc))
 				script_error(L, "error: %s", lua_tostring(L, -1));
+            lua_remove(L,errfunc);
 		}
 	}
 	return 1;

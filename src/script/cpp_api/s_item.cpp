@@ -38,12 +38,14 @@ bool ScriptApiItem::item_OnDrop(ItemStack &item,
 	if(!getItemCallback(item.name.c_str(), "on_drop"))
 		return false;
 
+    int errfunc = script_error_handler(L);
 	// Call function
 	LuaItemStack::create(L, item);
 	objectrefGetOrCreate(dropper);
 	pushFloatPos(L, pos);
-	if(lua_pcall(L, 3, 1, 0))
+	if(lua_pcall(L, 3, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 	if(!lua_isnil(L, -1))
 		item = read_item(L,-1, getServer());
 	return true;
@@ -58,12 +60,14 @@ bool ScriptApiItem::item_OnPlace(ItemStack &item,
 	if(!getItemCallback(item.name.c_str(), "on_place"))
 		return false;
 
+    int errfunc = script_error_handler(L);
 	// Call function
 	LuaItemStack::create(L, item);
 	objectrefGetOrCreate(placer);
 	pushPointedThing(pointed);
-	if(lua_pcall(L, 3, 1, 0))
+	if(lua_pcall(L, 3, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 	if(!lua_isnil(L, -1))
 		item = read_item(L,-1, getServer());
 	return true;
@@ -78,14 +82,17 @@ bool ScriptApiItem::item_OnUse(ItemStack &item,
 	if(!getItemCallback(item.name.c_str(), "on_use"))
 		return false;
 
+    int errfunc = script_error_handler(L);
+
 	// Call function
 	LuaItemStack::create(L, item);
 	objectrefGetOrCreate(user);
 	pushPointedThing(pointed);
-	if(lua_pcall(L, 3, 1, 0))
+	if(lua_pcall(L, 3, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
 	if(!lua_isnil(L, -1))
 		item = read_item(L,-1, getServer());
+    lua_remove(L,errfunc);
 	return true;
 }
 
@@ -99,6 +106,7 @@ bool ScriptApiItem::item_OnCraft(ItemStack &item, ServerActiveObject *user,
 	LuaItemStack::create(L, item);
 	objectrefGetOrCreate(user);
 	
+    int errfunc = script_error_handler(L);
 	//Push inventory list
 	std::vector<ItemStack> items;
 	for(u32 i=0; i<old_craft_grid->getSize(); i++)
@@ -106,8 +114,9 @@ bool ScriptApiItem::item_OnCraft(ItemStack &item, ServerActiveObject *user,
 	push_items(L, items);
 
 	InvRef::create(L, craft_inv);
-	if(lua_pcall(L, 4, 1, 0))
+	if(lua_pcall(L, 4, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 	if(!lua_isnil(L, -1))
 		item = read_item(L,-1, getServer());
 	return true;
@@ -118,6 +127,7 @@ bool ScriptApiItem::item_CraftPredict(ItemStack &item, ServerActiveObject *user,
 {
 	SCRIPTAPI_PRECHECKHEADER
 
+    int errfunc = script_error_handler(L);
 	lua_getglobal(L, "minetest");
 	lua_getfield(L, -1, "craft_predict");
 	LuaItemStack::create(L, item);
@@ -130,8 +140,9 @@ bool ScriptApiItem::item_CraftPredict(ItemStack &item, ServerActiveObject *user,
 	push_items(L, items);
 
 	InvRef::create(L, craft_inv);
-	if(lua_pcall(L, 4, 1, 0))
+	if(lua_pcall(L, 4, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 	if(!lua_isnil(L, -1))
 		item = read_item(L,-1, getServer());
 	return true;

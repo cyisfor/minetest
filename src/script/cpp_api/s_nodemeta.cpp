@@ -41,10 +41,13 @@ int ScriptApiNodemeta::nodemeta_inventory_AllowMove(v3s16 p,
 	if(node.getContent() == CONTENT_IGNORE)
 		return 0;
 
+    int errfunc = script_error_handler(L);
 	// Push callback function on stack
 	if(!getItemCallback(ndef->get(node).name.c_str(),
-			"allow_metadata_inventory_move"))
+			"allow_metadata_inventory_move")) {
+        lua_remove(L,errfunc);
 		return count;
+    }
 
 	// function(pos, from_list, from_index, to_list, to_index, count, player)
 	// pos
@@ -61,10 +64,11 @@ int ScriptApiNodemeta::nodemeta_inventory_AllowMove(v3s16 p,
 	lua_pushinteger(L, count);
 	// player
 	objectrefGetOrCreate(player);
-	if(lua_pcall(L, 7, 1, 0))
+	if(lua_pcall(L, 7, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
 	if(!lua_isnumber(L, -1))
 		throw LuaError(L, "allow_metadata_inventory_move should return a number");
+    lua_remove(L,errfunc);
 	return luaL_checkinteger(L, -1);
 }
 
@@ -82,10 +86,14 @@ int ScriptApiNodemeta::nodemeta_inventory_AllowPut(v3s16 p,
 	if(node.getContent() == CONTENT_IGNORE)
 		return 0;
 
+    int errfunc = script_error_handler(L);
+
 	// Push callback function on stack
 	if(!getItemCallback(ndef->get(node).name.c_str(),
-			"allow_metadata_inventory_put"))
+			"allow_metadata_inventory_put")) {
+        lua_remove(L,errfunc);
 		return stack.count;
+    }
 
 	// Call function(pos, listname, index, stack, player)
 	// pos
@@ -98,10 +106,11 @@ int ScriptApiNodemeta::nodemeta_inventory_AllowPut(v3s16 p,
 	LuaItemStack::create(L, stack);
 	// player
 	objectrefGetOrCreate(player);
-	if(lua_pcall(L, 5, 1, 0))
+	if(lua_pcall(L, 5, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
 	if(!lua_isnumber(L, -1))
 		throw LuaError(L, "allow_metadata_inventory_put should return a number");
+    lua_remove(L,errfunc);
 	return luaL_checkinteger(L, -1);
 }
 
@@ -119,10 +128,13 @@ int ScriptApiNodemeta::nodemeta_inventory_AllowTake(v3s16 p,
 	if(node.getContent() == CONTENT_IGNORE)
 		return 0;
 
+    int errfunc = script_error_handler(L);
 	// Push callback function on stack
 	if(!getItemCallback(ndef->get(node).name.c_str(),
-			"allow_metadata_inventory_take"))
+			"allow_metadata_inventory_take")) {
+        lua_remove(L,errfunc);
 		return stack.count;
+    }
 
 	// Call function(pos, listname, index, count, player)
 	// pos
@@ -135,10 +147,11 @@ int ScriptApiNodemeta::nodemeta_inventory_AllowTake(v3s16 p,
 	LuaItemStack::create(L, stack);
 	// player
 	objectrefGetOrCreate(player);
-	if(lua_pcall(L, 5, 1, 0))
+	if(lua_pcall(L, 5, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
 	if(!lua_isnumber(L, -1))
 		throw LuaError(L, "allow_metadata_inventory_take should return a number");
+    lua_remove(L,errfunc);
 	return luaL_checkinteger(L, -1);
 }
 
@@ -157,10 +170,13 @@ void ScriptApiNodemeta::nodemeta_inventory_OnMove(v3s16 p,
 	if(node.getContent() == CONTENT_IGNORE)
 		return;
 
+    int errfunc = script_error_handler(L);
 	// Push callback function on stack
 	if(!getItemCallback(ndef->get(node).name.c_str(),
-			"on_metadata_inventory_move"))
+			"on_metadata_inventory_move")) {
+        lua_remove(L,errfunc);
 		return;
+    }
 
 	// function(pos, from_list, from_index, to_list, to_index, count, player)
 	// pos
@@ -177,8 +193,9 @@ void ScriptApiNodemeta::nodemeta_inventory_OnMove(v3s16 p,
 	lua_pushinteger(L, count);
 	// player
 	objectrefGetOrCreate(player);
-	if(lua_pcall(L, 7, 0, 0))
+	if(lua_pcall(L, 7, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 
 // Report put items
@@ -195,10 +212,13 @@ void ScriptApiNodemeta::nodemeta_inventory_OnPut(v3s16 p,
 	if(node.getContent() == CONTENT_IGNORE)
 		return;
 
+    int errfunc = script_error_handler(L);
 	// Push callback function on stack
 	if(!getItemCallback(ndef->get(node).name.c_str(),
-			"on_metadata_inventory_put"))
+			"on_metadata_inventory_put")) {
+        lua_remove(L,errfunc);
 		return;
+    }
 
 	// Call function(pos, listname, index, stack, player)
 	// pos
@@ -211,8 +231,9 @@ void ScriptApiNodemeta::nodemeta_inventory_OnPut(v3s16 p,
 	LuaItemStack::create(L, stack);
 	// player
 	objectrefGetOrCreate(player);
-	if(lua_pcall(L, 5, 0, 0))
+	if(lua_pcall(L, 5, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 
 // Report taken items
@@ -234,6 +255,11 @@ void ScriptApiNodemeta::nodemeta_inventory_OnTake(v3s16 p,
 			"on_metadata_inventory_take"))
 		return;
 
+    int errfunc = script_error_handler(L);
+    // hop over the handler
+    lua_insert(L,-2);
+    --errfunc;
+
 	// Call function(pos, listname, index, stack, player)
 	// pos
 	push_v3s16(L, p);
@@ -245,8 +271,9 @@ void ScriptApiNodemeta::nodemeta_inventory_OnTake(v3s16 p,
 	LuaItemStack::create(L, stack);
 	// player
 	objectrefGetOrCreate(player);
-	if(lua_pcall(L, 5, 0, 0))
+	if(lua_pcall(L, 5, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 
 ScriptApiNodemeta::ScriptApiNodemeta() {

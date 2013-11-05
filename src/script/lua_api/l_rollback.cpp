@@ -53,6 +53,7 @@ int ModApiRollback::l_rollback_revert_actions_by(lua_State *L)
 	bool success = server->rollbackRevertActions(actions, &log);
 	// Push boolean result
 	lua_pushboolean(L, success);
+    int errfunc = script_error_handler(L);
 	// Get the table insert function and push the log table
 	lua_getglobal(L, "table");
 	lua_getfield(L, -1, "insert");
@@ -65,9 +66,11 @@ int ModApiRollback::l_rollback_revert_actions_by(lua_State *L)
 		lua_pushvalue(L, table_insert);
 		lua_pushvalue(L, table);
 		lua_pushstring(L, i->c_str());
-		if(lua_pcall(L, 2, 0, 0))
+		if(lua_pcall(L, 2, 0, errfunc))
 			script_error(L, "error: %s", lua_tostring(L, -1));
 	}
+    // XXX: this could just be lua_remove(L,errfunc)
+    lua_remove(L, errfunc);
 	lua_remove(L, -2); // Remove table
 	lua_remove(L, -2); // Remove insert
 	return 2;

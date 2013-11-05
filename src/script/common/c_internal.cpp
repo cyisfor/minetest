@@ -51,6 +51,14 @@ void script_error(lua_State *L, const char *fmt, ...)
 	throw LuaError(L, buf);
 }
 
+int script_error_handler(lua_State *L) {
+    // error handler
+    lua_getglobal(L,"minetest");
+    lua_getfield(L,-1, "error");
+    lua_remove(L,-2);
+    return lua_gettop(L);
+}
+
 // Push the list of callbacks (a lua table).
 // Then push nargs arguments.
 // Then call this function, which
@@ -72,6 +80,9 @@ void script_run_callbacks(lua_State *L, int nargs, RunCallbacksMode mode)
 
 	luaL_checktype(L, table, LUA_TTABLE);
 
+    // the table is absolute so we can just stick stuff here
+    int errfunc = script_error_handler(L);
+
 	// Foreach
 	lua_pushnil(L);
 	bool first_loop = true;
@@ -81,7 +92,7 @@ void script_run_callbacks(lua_State *L, int nargs, RunCallbacksMode mode)
 		// Call function
 		for(int i = 0; i < nargs; i++)
 			lua_pushvalue(L, arg+i);
-		if(lua_pcall(L, nargs, 1, 0))
+		if(lua_pcall(L, nargs, 1, errfunc))
 			script_error(L, "error: %s", lua_tostring(L, -1));
 
 		// Move return value to designated space in stack

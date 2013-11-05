@@ -88,14 +88,19 @@ void ScriptApiEntity::luaentity_Activate(u16 id,
 	lua_pushvalue(L, object);
 	lua_getfield(L, -1, "on_activate");
 	if(!lua_isnil(L, -1)){
+        int errfunc = script_error_handler(L);
+        // hop over the handler
+        lua_insert(L,-2);
+        --errfunc;
 		luaL_checktype(L, -1, LUA_TFUNCTION);
 		lua_pushvalue(L, object); // self
 		lua_pushlstring(L, staticdata.c_str(), staticdata.size());
 		lua_pushinteger(L, dtime_s);
 		// Call with 3 arguments, 0 results
-		if(lua_pcall(L, 3, 0, 0))
+		if(lua_pcall(L, 3, 0, errfunc))
 			scriptError("error running function on_activate: %s\n",
 					lua_tostring(L, -1));
+        lua_remove(L,errfunc);
 	}
 }
 
@@ -135,10 +140,15 @@ std::string ScriptApiEntity::luaentity_GetStaticdata(u16 id)
 	if(lua_isnil(L, -1))
 		return "";
 
+    int errfunc = script_error_handler(L);
+    // hop over the handler
+    lua_insert(L,-2);
+    errfunc -= 2;
+
 	luaL_checktype(L, -1, LUA_TFUNCTION);
 	lua_pushvalue(L, object); // self
 	// Call with 1 arguments, 1 results
-	if(lua_pcall(L, 1, 1, 0))
+	if(lua_pcall(L, 1, 1, errfunc))
 		scriptError("error running function get_staticdata: %s\n",
 				lua_tostring(L, -1));
 
@@ -202,12 +212,18 @@ void ScriptApiEntity::luaentity_Step(u16 id, float dtime)
 	lua_getfield(L, -1, "on_step");
 	if(lua_isnil(L, -1))
 		return;
+
+    int errfunc = script_error_handler(L);
+    // hop over the handler
+    lua_insert(L,-2);
+    --errfunc;
 	luaL_checktype(L, -1, LUA_TFUNCTION);
 	lua_pushvalue(L, object); // self
 	lua_pushnumber(L, dtime); // dtime
 	// Call with 2 arguments, 0 results
-	if(lua_pcall(L, 2, 0, 0))
+	if(lua_pcall(L, 2, 0, errfunc))
 		scriptError("error running function 'on_step': %s\n", lua_tostring(L, -1));
+    lua_settop(L,errfunc);
 }
 
 // Calls entity:on_punch(ObjectRef puncher, time_from_last_punch,
@@ -228,15 +244,19 @@ void ScriptApiEntity::luaentity_Punch(u16 id,
 	lua_getfield(L, -1, "on_punch");
 	if(lua_isnil(L, -1))
 		return;
-	luaL_checktype(L, -1, LUA_TFUNCTION);
+    int errfunc = script_error_handler(L);
+    // hop over the handler
+    lua_insert(L,-2);
+    --errfunc;	luaL_checktype(L, -1, LUA_TFUNCTION);
 	lua_pushvalue(L, object); // self
 	objectrefGetOrCreate(puncher); // Clicker reference
 	lua_pushnumber(L, time_from_last_punch);
 	push_tool_capabilities(L, *toolcap);
 	push_v3f(L, dir);
 	// Call with 5 arguments, 0 results
-	if(lua_pcall(L, 5, 0, 0))
+	if(lua_pcall(L, 5, 0, errfunc))
 		scriptError("error running function 'on_punch': %s\n", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 
 // Calls entity:on_rightclick(ObjectRef clicker)
@@ -255,11 +275,17 @@ void ScriptApiEntity::luaentity_Rightclick(u16 id,
 	lua_getfield(L, -1, "on_rightclick");
 	if(lua_isnil(L, -1))
 		return;
-	luaL_checktype(L, -1, LUA_TFUNCTION);
+	
+    int errfunc = script_error_handler(L);
+    // hop over the handler
+    lua_insert(L,-2);
+    --errfunc;
+    luaL_checktype(L, -1, LUA_TFUNCTION);
 	lua_pushvalue(L, object); // self
 	objectrefGetOrCreate(clicker); // Clicker reference
 	// Call with 2 arguments, 0 results
-	if(lua_pcall(L, 2, 0, 0))
+	if(lua_pcall(L, 2, 0, errfunc))
 		scriptError("error running function 'on_rightclick': %s\n", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 

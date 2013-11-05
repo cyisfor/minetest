@@ -53,6 +53,7 @@ void LuaABM::trigger(ServerEnvironment *env, v3s16 p, MapNode n,
 	assert(lua_checkstack(L, 20));
 	StackUnroller stack_unroller(L);
 
+    int errfunc = script_error_handler(L);
 	// Get minetest.registered_abms
 	lua_getglobal(L, "minetest");
 	lua_getfield(L, -1, "registered_abms");
@@ -73,7 +74,7 @@ void LuaABM::trigger(ServerEnvironment *env, v3s16 p, MapNode n,
 	pushnode(L, n, env->getGameDef()->ndef());
 	lua_pushnumber(L, active_object_count);
 	lua_pushnumber(L, active_object_count_wider);
-	if(lua_pcall(L, 4, 0, 0))
+	if(lua_pcall(L, 4, 0, errfunc))
 		script_error(L, "error: %s", lua_tostring(L, -1));
 }
 
@@ -364,6 +365,7 @@ int ModApiEnvMod::l_add_item(lua_State *L)
 {
 	GET_ENV_PTR;
 
+    int errfunc = script_error_handler(L);
 	// pos
 	//v3f pos = checkFloatPos(L, 1);
 	// item
@@ -377,8 +379,9 @@ int ModApiEnvMod::l_add_item(lua_State *L)
 		return 0;
 	lua_pushvalue(L, 1);
 	lua_pushstring(L, item.getItemString().c_str());
-	if(lua_pcall(L, 2, 1, 0))
+	if(lua_pcall(L, 2, 1, errfunc))
 		script_error(L, "error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 	return 1;
 	/*lua_pushvalue(L, 1);
 	lua_pushstring(L, "__builtin:item");
@@ -427,6 +430,7 @@ int ModApiEnvMod::l_get_objects_inside_radius(lua_State *L)
 
 	GET_ENV_PTR;
 
+    int errfunc = script_error_handler(L);
 	// Do it
 	v3f pos = checkFloatPos(L, 1);
 	float radius = luaL_checknumber(L, 2) * BS;
@@ -440,9 +444,10 @@ int ModApiEnvMod::l_get_objects_inside_radius(lua_State *L)
 		lua_pushvalue(L, table_insert);
 		lua_pushvalue(L, table);
 		getScriptApiBase(L)->objectrefGetOrCreate(obj);
-		if(lua_pcall(L, 2, 0, 0))
+		if(lua_pcall(L, 2, 0, errfunc))
 			script_error(L, "error: %s", lua_tostring(L, -1));
 	}
+    lua_remove(L,errfunc);
 	return 1;
 }
 
@@ -551,6 +556,7 @@ int ModApiEnvMod::l_find_nodes_in_area(lua_State *L)
 		ndef->getIds(lua_tostring(L, 3), filter);
 	}
 
+    int errfunc = script_error_handler(L);
 	// Get the table insert function
 	lua_getglobal(L, "table");
 	lua_getfield(L, -1, "insert");
@@ -568,10 +574,11 @@ int ModApiEnvMod::l_find_nodes_in_area(lua_State *L)
 			lua_pushvalue(L, table_insert);
 			lua_pushvalue(L, table);
 			push_v3s16(L, p);
-			if(lua_pcall(L, 2, 0, 0))
+			if(lua_pcall(L, 2, 0, errfunc))
 				script_error(L, "error: %s", lua_tostring(L, -1));
 		}
 	}
+    lua_remove(L,errfunc);
 	return 1;
 }
 

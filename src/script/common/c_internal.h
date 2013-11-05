@@ -66,6 +66,7 @@ enum RunCallbacksMode
 
 std::string script_get_backtrace   (lua_State *L);
 void        script_error           (lua_State *L, const char *fmt, ...);
+int         script_error_handler   (lua_State *L);
 void        script_run_callbacks   (lua_State *L, int nargs,
                                     RunCallbacksMode mode);
 

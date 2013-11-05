@@ -93,16 +93,23 @@ bool ScriptApiNode::node_on_punch(v3s16 p, MapNode node,
 
 	INodeDefManager *ndef = getServer()->ndef();
 
+    int errfunc = script_error_handler(L);
+    // before the three arguments
+
 	// Push callback function on stack
-	if(!getItemCallback(ndef->get(node).name.c_str(), "on_punch"))
+	if(!getItemCallback(ndef->get(node).name.c_str(), "on_punch")) {
+        lua_remove(L,errfunc);
 		return false;
+    }
 
 	// Call function
 	push_v3s16(L, p);
 	pushnode(L, node, ndef);
 	objectrefGetOrCreate(puncher);
-	if(lua_pcall(L, 3, 0, 0))
+	if(lua_pcall(L, 3, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    // returns 0 so can just drop top below errfunc
+    lua_remove(L,errfunc);
 	return true;
 }
 
@@ -113,16 +120,21 @@ bool ScriptApiNode::node_on_dig(v3s16 p, MapNode node,
 
 	INodeDefManager *ndef = getServer()->ndef();
 
+    int errfunc = script_error_handler(L);
+
 	// Push callback function on stack
-	if(!getItemCallback(ndef->get(node).name.c_str(), "on_dig"))
+	if(!getItemCallback(ndef->get(node).name.c_str(), "on_dig")) {
+        lua_remove(L,errfunc);
 		return false;
+    }
 
 	// Call function
 	push_v3s16(L, p);
 	pushnode(L, node, ndef);
 	objectrefGetOrCreate(digger);
-	if(lua_pcall(L, 3, 0, 0))
+	if(lua_pcall(L, 3, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 	return true;
 }
 
@@ -132,14 +144,19 @@ void ScriptApiNode::node_on_construct(v3s16 p, MapNode node)
 
 	INodeDefManager *ndef = getServer()->ndef();
 
+    int errfunc = script_error_handler(L);
+
 	// Push callback function on stack
-	if(!getItemCallback(ndef->get(node).name.c_str(), "on_construct"))
+	if(!getItemCallback(ndef->get(node).name.c_str(), "on_construct")) {
+        lua_remove(L,errfunc);
 		return;
+    }
 
 	// Call function
 	push_v3s16(L, p);
-	if(lua_pcall(L, 1, 0, 0))
+	if(lua_pcall(L, 1, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 
 void ScriptApiNode::node_on_destruct(v3s16 p, MapNode node)
@@ -148,14 +165,18 @@ void ScriptApiNode::node_on_destruct(v3s16 p, MapNode node)
 
 	INodeDefManager *ndef = getServer()->ndef();
 
+    int errfunc = script_error_handler(L);
 	// Push callback function on stack
-	if(!getItemCallback(ndef->get(node).name.c_str(), "on_destruct"))
+	if(!getItemCallback(ndef->get(node).name.c_str(), "on_destruct")) {
+        lua_remove(L,errfunc);
 		return;
+    }
 
 	// Call function
 	push_v3s16(L, p);
-	if(lua_pcall(L, 1, 0, 0))
+	if(lua_pcall(L, 1, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 
 void ScriptApiNode::node_after_destruct(v3s16 p, MapNode node)
@@ -164,15 +185,18 @@ void ScriptApiNode::node_after_destruct(v3s16 p, MapNode node)
 
 	INodeDefManager *ndef = getServer()->ndef();
 
+    int errfunc = script_error_handler(L);
 	// Push callback function on stack
-	if(!getItemCallback(ndef->get(node).name.c_str(), "after_destruct"))
+	if(!getItemCallback(ndef->get(node).name.c_str(), "after_destruct")) {
+        lua_remove(L,errfunc);
 		return;
-
+    }
 	// Call function
 	push_v3s16(L, p);
 	pushnode(L, node, ndef);
-	if(lua_pcall(L, 2, 0, 0))
+	if(lua_pcall(L, 2, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 
 bool ScriptApiNode::node_on_timer(v3s16 p, MapNode node, f32 dtime)
@@ -181,15 +205,20 @@ bool ScriptApiNode::node_on_timer(v3s16 p, MapNode node, f32 dtime)
 
 	INodeDefManager *ndef = getServer()->ndef();
 
+    int errfunc = script_error_handler(L);
 	// Push callback function on stack
-	if(!getItemCallback(ndef->get(node).name.c_str(), "on_timer"))
+	if(!getItemCallback(ndef->get(node).name.c_str(), "on_timer")) {
+        lua_remove(L,errfunc);
 		return false;
+    }
 
 	// Call function
 	push_v3s16(L, p);
 	lua_pushnumber(L,dtime);
-	if(lua_pcall(L, 2, 1, 0))
+	if(lua_pcall(L, 2, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    // 1 return value, so errfunc is at -2
+    lua_remove(L,-2);
 	if((bool)lua_isboolean(L,-1) && (bool)lua_toboolean(L,-1) == true)
 		return true;
 
@@ -210,9 +239,12 @@ void ScriptApiNode::node_on_receive_fields(v3s16 p,
 	if(node.getContent() == CONTENT_IGNORE)
 		return;
 
+    int errfunc = script_error_handler(L);
 	// Push callback function on stack
-	if(!getItemCallback(ndef->get(node).name.c_str(), "on_receive_fields"))
+	if(!getItemCallback(ndef->get(node).name.c_str(), "on_receive_fields")) {
+        lua_remove(L,errfunc);
 		return;
+    }
 
 	// Call function
 	// param 1
@@ -231,24 +263,29 @@ void ScriptApiNode::node_on_receive_fields(v3s16 p,
 	}
 	// param 4
 	objectrefGetOrCreate(sender);
-	if(lua_pcall(L, 4, 0, 0))
+	if(lua_pcall(L, 4, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 
 void ScriptApiNode::node_falling_update(v3s16 p)
 {
 	SCRIPTAPI_PRECHECKHEADER
+    int errfunc = script_error_handler(L);
 	lua_getglobal(L, "nodeupdate");
 	push_v3s16(L, p);
-	if(lua_pcall(L, 1, 0, 0))
+	if(lua_pcall(L, 1, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 
 void ScriptApiNode::node_falling_update_single(v3s16 p)
 {
 	SCRIPTAPI_PRECHECKHEADER
+    int errfunc = script_error_handler(L);
 	lua_getglobal(L, "nodeupdate_single");
 	push_v3s16(L, p);
-	if(lua_pcall(L, 1, 0, 0))
+	if(lua_pcall(L, 1, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }

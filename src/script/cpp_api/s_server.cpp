@@ -27,13 +27,17 @@ bool ScriptApiServer::getAuth(const std::string &playername,
 {
 	SCRIPTAPI_PRECHECKHEADER
 
+
+    int errfunc = script_error_handler(L);
+
 	getAuthHandler();
 	lua_getfield(L, -1, "get_auth");
 	if(lua_type(L, -1) != LUA_TFUNCTION)
 		throw LuaError(L, "Authentication handler missing get_auth");
 	lua_pushstring(L, playername.c_str());
-	if(lua_pcall(L, 1, 1, 0))
+	if(lua_pcall(L, 1, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 
 	// nil = login not allowed
 	if(lua_isnil(L, -1))
@@ -96,14 +100,16 @@ void ScriptApiServer::createAuth(const std::string &playername,
 {
 	SCRIPTAPI_PRECHECKHEADER
 
+    int errfunc = script_error_handler(L);
 	getAuthHandler();
 	lua_getfield(L, -1, "create_auth");
 	if(lua_type(L, -1) != LUA_TFUNCTION)
 		throw LuaError(L, "Authentication handler missing create_auth");
 	lua_pushstring(L, playername.c_str());
 	lua_pushstring(L, password.c_str());
-	if(lua_pcall(L, 2, 0, 0))
+	if(lua_pcall(L, 2, 0, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 }
 
 bool ScriptApiServer::setPassword(const std::string &playername,
@@ -111,14 +117,16 @@ bool ScriptApiServer::setPassword(const std::string &playername,
 {
 	SCRIPTAPI_PRECHECKHEADER
 
+    int errfunc = script_error_handler(L);
 	getAuthHandler();
 	lua_getfield(L, -1, "set_password");
 	if(lua_type(L, -1) != LUA_TFUNCTION)
 		throw LuaError(L, "Authentication handler missing set_password");
 	lua_pushstring(L, playername.c_str());
 	lua_pushstring(L, password.c_str());
-	if(lua_pcall(L, 2, 1, 0))
+	if(lua_pcall(L, 2, 1, errfunc))
 		scriptError("error: %s", lua_tostring(L, -1));
+    lua_remove(L,errfunc);
 	return lua_toboolean(L, -1);
 }
 
